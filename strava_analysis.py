@@ -431,5 +431,70 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Long Runs and Pace
+    Long runs are [critical to any distance running training plan](https://www.fleetfeet.com/how-to-start-running/training-long-run?srsltid=AfmBOopQv63nH2RdzZt-vb-_y2iXwIPLWp9OtXSWKsEKNO-sYO1lEMv0). They build endurance by increasing VO2 Max, help prevent injury by gradually increasing weekly load, and contribute to mental toughness. All of these are key factors in training, and the quality and frequency of your long runs can make or break a half marathon race.
+
+    Even though I was not perfectly consistent with my training plan, I made my best effort to *at least* complete my long run each week. My first long run was 10k, and I gradually increased distance as time passed. As mentioned earlier, long runs should make up $\leq$ 30% of the total distance run per week.
+
+    I want to see how my average pace increased as a function of long runs completed, while examining the proportion of long run distance to total weekly distance. My average pace did improve over the training period, as I observed my "easy" runs landed at about 1 min/mile (or about 0.62 min/km) faster than I began, once all was said and done.
+    """)
+    return
+
+
+@app.cell
+def _(df, np, plt, weekly):
+    long_runs = df[df["distance_km"] >= 10].copy()
+    x_n = (df["date"] - df["date"].min()).dt.days.values
+
+    long_runs = long_runs.merge(
+        weekly[["week_num", "total_km"]], on="week_num", how="left"
+    )
+    long_runs["pct_of_week"] = (long_runs["distance_km"] / long_runs["total_km"] * 100).round(1)
+
+    fig4, ax4 = plt.subplots(figsize=(10, 4))
+
+    ax4.scatter(df["date"], df["pace_min_per_km"], alpha=0.4, color="#4A90D9", s=50, label="All runs")
+    ax4.scatter(long_runs["date"], long_runs["pace_min_per_km"], color="#E8593C", s=80, zorder=5, label="long runs (≥10 km)")
+    ax4.plot(df["date"], np.poly1d(np.polyfit(x_n, df["pace_min_per_km"].values, 1))(x_n), color="#2ecc71", linewidth=2, linestyle="--", label="Trend")
+
+    pct_dists = []
+
+    for _, row_ in long_runs.iterrows():
+        ax4.annotate(
+            f"{row_['pct_of_week']}%",
+            xy=(row_["date"], row_["pace_min_per_km"]),
+            xytext=(0, 10),
+            textcoords="offset points",
+            ha="center",
+            fontsize=8,
+            color="#E8593C",
+        )
+        pct_dists.append(row_['pct_of_week'])
+
+    mean_pct_dist = round(sum(pct_dists) / len(pct_dists), 2)
+
+    ax4.invert_yaxis()
+    ax4.set_title("Pace progression over 12 weeks")
+    ax4.set_xlabel("Date")
+    ax4.set_ylabel("Pace (min/km)")
+    ax4.legend()
+    ax4.spines[["top", "right"]].set_visible(False)
+    ax4.tick_params(axis="x", rotation=30)
+    plt.tight_layout()
+    plt.gca()
+    return (mean_pct_dist,)
+
+
+@app.cell(hide_code=True)
+def _(mean_pct_dist, mo):
+    mo.md(rf"""
+    Yikes.. it looks like my long runs made up an average of {mean_pct_dist}% of my weekly distance. While I did steadily build my total distance and pace over the course of the training plan, I should definitely up my mid-week mileage next time to avoid overtraining on weekends.
+    """)
+    return
+
+
 if __name__ == "__main__":
     app.run()
