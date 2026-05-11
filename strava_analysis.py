@@ -423,7 +423,7 @@ def _(mo):
     - **Week 10**: Increased tempo work before the taper began.
 
     And for the biggest negative differences:
-    - **Week 2**: I was hyped up about getting back into the training grind, and I was running near the beaches in Baja California Sur, Mexico. Hard to get stressed in that environment!
+    - **Week 2**: I was running near the beaches in Baja California Sur, Mexico. Hard to get stressed in that environment!
     - **Week 5**: Honestly, I was just hyped up about the progress being made in my fitness. A (private) Instagram story confirms this! :)
 
     Sprints and tempo work have always been difficult for me. However, I know they are an integral part of building fitness, so I try my hardest to nail those workouts when they come up. The increased Relative Effort of that middle third of my training plan reflects the difficulty I faced with those sessions, but I truly believe they paid off on race day!
