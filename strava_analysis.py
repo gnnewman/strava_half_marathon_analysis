@@ -195,7 +195,7 @@ def _(mo):
     ## Weekly Load
     With my features in order, the first thing I want to look at is how much I was *doing* each week. A few significant family emergencies happened in April, so I expect there to be some variation in my training load around those weeks.
 
-    According to [Coros](https://coros.com/stories/coros-coaches/c/half-marathon-training-guide), an optimal half marathon training plan should build mileage at a rate of around 10% per week, with long runs making up \leq than 30% of the total mileage. My plan incuded a taper that began approximately a week and a half before race day, so the load should drop off starting in Weeks 10-11.
+    According to [Coros](https://coros.com/stories/coros-coaches/c/half-marathon-training-guide), an optimal half marathon training plan should build mileage at a rate of around 10% per week, with long runs making up $\leq$ 30% of the total mileage. My plan incuded a taper that began approximately a week and a half before race day, so the load should drop off starting in Weeks 10-11.
 
     In terms of data visualization, this should look like a steady upward trend in load for the first 9-10 weeks, followed by a drop leading into race day.
     """)
