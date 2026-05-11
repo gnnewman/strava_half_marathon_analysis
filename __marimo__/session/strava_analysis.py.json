@@ -1,0 +1,74 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.5",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "788cd4f50481746813090be0f1c6a37b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "a12c0e76502a51b360d03db1aa177887",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "af8fb859c8ee9de49c61656a622f669a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "f3a8286672aa7030827426064a439749",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "fetching runs from Strava API...\n29 runs fetched and cached\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "iLIn",
+      "code_hash": null,
+      "outputs": [],
+      "console": []
+    }
+  ]
+}
