@@ -4,6 +4,18 @@ __generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Strava Data Analysis: Yosemite Half Marathon
+
+    On May 9th, 2026, my fiancé and I ran the Vacation Race's Yosemite Half Marathon, and we had a blast! The training was... less fun. We are extremely amateur atheletes; this event marked my second half marathon and my fiancé's first. However, I love running, and my fiancé loves me, so the 12-week training program commenced on February 16th, 2026.
+
+    This notebook will provide insight into my actual training, using the Strava API. As an avid Strava user since 2018 (I was a sophomore in high school!), all my running-related data lives somewhere in their application. I figured that it's time to make use of what's there!
+    """)
+    return
+
+
 @app.cell
 def _():
     import marimo as mo
@@ -419,13 +431,13 @@ def _(mo):
 
     Now, let's review the divergence between distance and Relative Effort. After reviewing my training plan, I can clearly identify causes for some of the highest positive differences:
     - **Week 1**: The first week of training is always the hardest!
-    - **Weeks 7-8**: Lots of sprint work, including hill sprints and a brutal 1 minute sprint x 10 repeat workout.
-    - **Week 10**: Increased tempo work before the taper began.
+    - **Week 7**: Lots of sprint work, including hill sprints and a brutal 1 minute sprint x 10 repeat workout.
+    - **Weeks 10-11**: Increased tempo work before the taper began.
+    - **Week 13**: Race day! I was suffering for sure...
 
     And for the biggest negative differences:
     - **Week 2**: I was running near the beaches in Baja California Sur, Mexico. Hard to get stressed in that environment!
     - **Week 5**: Honestly, I was just hyped up about the progress being made in my fitness. A (private) Instagram story confirms this! :)
-    - **Week 13**: Race day! I was suffering for sure...
 
     Sprints and tempo work have always been difficult for me. However, I know they are an integral part of building fitness, so I try my hardest to nail those workouts when they come up. The increased Relative Effort of that middle third of my training plan reflects the difficulty I faced with those sessions, but I truly believe they paid off on race day!
     """)
@@ -492,7 +504,251 @@ def _(df, np, plt, weekly):
 @app.cell(hide_code=True)
 def _(mean_pct_dist, mo):
     mo.md(rf"""
-    Yikes.. it looks like my long runs made up an average of {mean_pct_dist}% of my weekly distance. While I did steadily build my total distance and pace over the course of the training plan, I should definitely up my mid-week mileage next time to avoid overtraining on weekends.
+    Yikes.. it looks like my long runs (red points) made up an average of {mean_pct_dist}% of my weekly distance. While I did steadily build my total distance and pace over the course of the training plan, I should definitely up my mid-week mileage next time to avoid overtraining on weekends.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Race Day Deep-Dive
+
+    Now that I've taken a look at the quality of my training, it's time to analyze the culmination of it all: race day!
+
+    On May 9, 2026, at 6 AM PST, my fiancé and I lined up at the top of a pine-blanketed hill in Bass Lake, CA for our race. The gun was fired, and we were off...
+
+    Let's take a look at my mile splits. To do this, I'll need to get the Streams, a more detailed view of an activity from Strava, from my race. Since there should only be one race in this time period, I'm not going to implement persistence logic for this set.
+    """)
+    return
+
+
+@app.cell
+def _(ACCESS_TOKEN, raw_runs, requests):
+    def fetch_streams(activity_id, access_token):
+        resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"keys": "time,distance,heartrate,velocity_smooth,altitude", "key_by_type": "true"},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    streams = None
+    race_id = [a for a in raw_runs if a.get("workout_type") == 1][0]["id"]
+    race_name = [a for a in raw_runs if a.get("workout_type") == 1][0]["name"]
+
+    if race_id:
+        streams = fetch_streams(race_id, ACCESS_TOKEN)
+        print(f"fetched streams for {race_name}")
+    return (streams,)
+
+
+@app.cell
+def _(mo, pd, plt, streams):
+    if not streams:
+        mo.stop(True, mo.callout(mo.md("Race ID is required to see the race breakdown."), kind="warn"))
+
+    dist = streams["distance"]["data"]
+    hr   = streams.get("heartrate", {}).get("data")
+    vel  = streams["velocity_smooth"]["data"]
+    alt  = streams.get("altitude", {}).get("data")
+
+    race_df = pd.DataFrame({
+        "dist_km": [d / 1000 for d in dist],
+        "pace":    [1 / (v * 60 / 1000) if v > 0 else None for v in vel],
+        "hr":      hr,
+        "alt":     alt,
+    })
+    race_df["km_bin"] = race_df["dist_km"].apply(lambda x: int(x))
+
+    splits = race_df.groupby("km_bin").agg(
+        avg_pace=("pace", "mean"),
+        avg_hr=("hr", "mean") if hr else ("dist_km", "count"),
+    ).reset_index()
+
+    # km to mile conversion: 1 mile = 1.60934 km
+    splits["avg_pace_mile"] = splits["avg_pace"] * 1.60934
+
+    n_plots     = 4 if (hr and alt) else (3 if (hr or alt) else 2)
+    fig5, axes5 = plt.subplots(n_plots, 1, figsize=(11, 3 * n_plots), sharex=True)
+    if n_plots == 1:
+        axes5 = [axes5]
+
+    ax_idx    = 0
+    mean_pace = splits["avg_pace"].mean()
+
+    # pace in km
+    axes5[ax_idx].bar(splits["km_bin"], splits["avg_pace"], color="#4A90D9", alpha=0.8, width=0.7)
+    axes5[ax_idx].axhline(mean_pace, color="#E8593C", linestyle="--", linewidth=1.5, label=f"Avg {mean_pace:.2f} min/km")
+    axes5[ax_idx].invert_yaxis()
+    axes5[ax_idx].set_ylabel("Pace (min/km)")
+    axes5[ax_idx].set_title("Race Day Splits")
+    axes5[ax_idx].legend(fontsize=8)
+    axes5[ax_idx].spines[["top", "right"]].set_visible(False)
+    ax_idx += 1
+
+    # pace in mi
+    mean_pace_mile = splits["avg_pace_mile"].mean()
+
+    def fmt_pace(minutes):
+        m = int(minutes)
+        s = int(round((minutes - m) * 60))
+        return f"{m}:{s:02d}"
+
+    axes5[ax_idx].bar(splits["km_bin"], splits["avg_pace_mile"], color="#4A90D9", alpha=0.5, width=0.7)
+    axes5[ax_idx].axhline(mean_pace_mile, color="#E8593C", linestyle="--", linewidth=1.5, label=f"Avg {fmt_pace(mean_pace_mile)} min/mi")
+    axes5[ax_idx].invert_yaxis()
+    axes5[ax_idx].set_ylabel("Pace (min/mile)")
+    axes5[ax_idx].yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: fmt_pace(x)))
+    axes5[ax_idx].legend(fontsize=8)
+    axes5[ax_idx].spines[["top", "right"]].set_visible(False)
+    ax_idx += 1
+
+    if hr:
+        axes5[ax_idx].plot(splits["km_bin"], splits["avg_hr"], color="#E8593C", linewidth=2)
+        axes5[ax_idx].fill_between(splits["km_bin"], splits["avg_hr"], alpha=0.15, color="#E8593C")
+        axes5[ax_idx].set_ylabel("Avg HR (bpm)")
+        axes5[ax_idx].set_ylim(60, 200)
+        axes5[ax_idx].spines[["top", "right"]].set_visible(False)
+        ax_idx += 1
+
+    if alt:
+        axes5[ax_idx].fill_between(race_df["dist_km"], race_df["alt"], alpha=0.3, color="#9B59B6")
+        axes5[ax_idx].plot(race_df["dist_km"], race_df["alt"], color="#9B59B6", linewidth=1.2)
+        axes5[ax_idx].set_ylabel("Elevation (m)")
+        axes5[ax_idx].spines[["top", "right"]].set_visible(False)
+
+    axes5[-1].set_xlabel("Distance (km)")
+    plt.tight_layout()
+    plt.gca()
+    return race_df, splits
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Pace Variation: Grade and Fatigue
+
+    As you can see from the above chart, there was some significant variation in my pace throughout the race. Some of this was definititively due to the altitude variation along the course: the first 3-4 miles of the course showcased beautifully brutal rolling hills through wooded fire roads. After that came my favorite part of the course: 7 miles of sweet, paved, downhill bliss. You can see that the pace dropped dramatically, by almost 1 min/km or 2 min/mi below average. The finish line emerged after 3 miles of "gentle" terrain around Bass Lake, within which I successfully avoided passing out.
+
+    One of my favorite features in the Strava app is the Grade Adjusted Pace data. I train in a hilly area, so it's always valuable for me to see how much a long climb *really* slows me down. Some [online discourse](https://forum.intervals.icu/t/gradient-adjusted-pace-model-minetti-instead-of-strava/112138) has gone on about the effectiveness of Strava's proprietary model versus tradidional methods, developed by [Minetti et al. in 2002](https://journals.physiology.org/doi/full/10.1152/japplphysiol.01177.2001). My Strava indicates that my race day Grade Adjusted Pace is slightly slower (~10 s/mi, at 9:26 min/mi) than my raw pace. Let's contribute to the discourse and compare Strava's output with the Minetti model.
+    """)
+    return
+
+
+@app.cell
+def _(plt, race_df):
+    # gradient correction: ~1 min/km per 100m/km grade (Minetti et al.)
+    race_df["gradient"] = race_df["alt"].diff() / (race_df["dist_km"].diff() * 1000) * 100
+    race_df["gradient"] = race_df["gradient"].clip(-20, 20)
+    race_df["pace_adjusted"] = race_df["pace"] - (race_df["gradient"] * 0.01)
+
+    adj_splits = race_df.groupby("km_bin").agg(
+        avg_pace=("pace", "mean"),
+        avg_pace_adj=("pace_adjusted", "mean"),
+        avg_gradient=("gradient", "mean"),
+    ).reset_index()
+
+    fig_adj, ax_adj = plt.subplots(figsize=(11, 4))
+
+    x_adj = adj_splits["km_bin"]
+    width = 0.35
+
+    ax_adj.bar(x_adj - width/2, adj_splits["avg_pace"], width, color="#4A90D9", alpha=0.8, label="Raw Pace")
+    ax_adj.bar(x_adj + width/2, adj_splits["avg_pace_adj"], width, color="#2ecc71", alpha=0.8, label="Grade Ajusted Pace")
+
+    ax_adj.invert_yaxis()
+    ax_adj.set_ylabel("Pace (min/km)")
+    ax_adj.set_xlabel("Distance (km)")
+    ax_adj.set_title("Raw vs Grade Adjusted Pace per km")
+    ax_adj.legend(fontsize=8)
+    ax_adj.spines[["top", "right"]].set_visible(False)
+
+    for _, row_adj in adj_splits.iterrows():
+        if abs(row_adj["avg_gradient"]) > 1:
+            label_grad = f"{row_adj['avg_gradient']:+.1f}%"
+            color = "#E8593C" if row_adj["avg_gradient"] > 0 else "#4A90D9"
+            y_pos = max(row_adj["avg_pace"], row_adj["avg_pace_adj"])
+            ax_adj.annotate(label_grad, xy=(row_adj["km_bin"], y_pos),
+                            xytext=(0, -14), textcoords="offset points",
+                            ha="center", fontsize=7, color=color)
+
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Looking at these tightly-coupled bars, Strava and Minetti seem to agree: the grade of the course didn't affect my pace *that* much. Though I'd like to blame my slow finish on a lack of downhill terrain, the data suggests that I was simply tired. Accounting for the fact that I missed my first feed window (30 min into the race), it makes sense that my body had run out of energy past mile 10.
+
+    Since I've determined that the course's grade made little difference in my pace overall, I want to take a closer look at my pace variation throughout the race.
+    """)
+    return
+
+
+@app.cell
+def _(plt, race_df, splits):
+    total_dist = race_df["dist_km"].max()
+    halfway    = total_dist / 2
+
+    race_df["half"] = race_df["dist_km"].apply(lambda x: "First half" if x <= halfway else "Second half")
+
+    half_avg   = race_df.groupby("half")["pace"].mean()
+    overall    = splits["avg_pace"].mean()
+
+    splits["pace_delta"] = splits["avg_pace"] - overall
+    splits["half"] = splits["km_bin"].apply(
+        lambda k: "First half" if (k + 0.5) <= halfway else "Second half"
+    )
+
+    fig_split, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(11, 7))
+
+    colors_split = ["#E8593C" if d > 0 else "#2ecc71" for d in splits["pace_delta"]]
+    ax_top.bar(splits["km_bin"], splits["pace_delta"], color=colors_split, alpha=0.85, width=0.7)
+    ax_top.axhline(0, color="grey", linewidth=0.8, linestyle="--")
+    ax_top.axvline(halfway, color="grey", linewidth=1, linestyle=":", label=f"Halfway ({halfway:.1f} km)")
+    ax_top.set_ylabel("Pace delta from avg (min/km)\nred = slower, green = faster")
+    ax_top.set_title("Per-km pace deviation from race average")
+    ax_top.legend(fontsize=8)
+    ax_top.spines[["top", "right"]].set_visible(False)
+
+    for half, grp in splits.groupby("half"):
+        mid_km  = grp["km_bin"].median()
+        avg_d   = grp["pace_delta"].mean()
+
+    splits["cum_avg_pace"] = splits["avg_pace"].expanding().mean()
+    ax_bot.plot(splits["km_bin"], splits["cum_avg_pace"], color="#4A90D9", linewidth=2, label="Cumulative avg pace")
+    ax_bot.axhline(overall, color="grey", linewidth=0.8, linestyle="--", label=f"Overall avg {overall:.2f} min/km")
+    ax_bot.axvline(halfway, color="grey", linewidth=1, linestyle=":")
+    ax_bot.invert_yaxis()
+    ax_bot.set_ylabel("Cumulative avg pace (min/km)")
+    ax_bot.set_xlabel("Distance (km)")
+    ax_bot.set_title("Cumulative average pace drift")
+    ax_bot.legend(fontsize=8)
+    ax_bot.spines[["top", "right"]].set_visible(False)
+
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    It's evident from the deviation graph that the downhill section helped me run faster. Even if the slope itself wasn't extreme enough to affect my pace biomechanically, it would be foolish to say that a combination of gravity and cognitive relief couldn't give me a "boost" to negative-split the middle of the race. Similarly, it's clear that the view of the finish line in that last kilometer significantly aided my spirits (and thus, legs).
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Conclusion
+
+    I've learned that consistency is king in distance sports. Though I'm an amateur runner, I can feel the effects of a skipped workout keenly. This traning set was no different– the weeks where I missed out on mileage affected my subsequent Relative Effort, and I may not have burned out at mile 10 had I hit those workouts on time. Whatever distance event I attempt next (looking at you, Olympic triathlon...), I hope to increase my dedication to the sport, hopefully bolstering my fitness and mental toughhness along the way. Until next time!
     """)
     return
 
